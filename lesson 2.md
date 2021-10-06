@@ -1,6 +1,7 @@
 ---
 date created: 2021-10-05 19:29:55 (+03:00), Tuesday
 ---
+# [Запись урока](https://www.youtube.com/watch?v=V6aGfrMXhbA) на youtube
 
 # Pod
 - Pod — не аббревиатура, в переводе "стручок" (горошины — контейнеры)
