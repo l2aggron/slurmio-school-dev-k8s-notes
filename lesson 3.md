@@ -505,6 +505,25 @@ kubectl patch deployment my-deployment --patch '{"spec":{"template":{"spec":{"co
 - Читаем так: нет ни одной ноды, которая может удовлетворить реквестам в 100 CPU
 - Это достаточно частая в реальности ситуация, когда мы пытаемся деплоить, а ресурсов кластера не хватает
     - Это может говорить о том, что у приложения слишком большие требования и нужно с этим что-то сделать, либо дествительно есть проблемы с выделенными ресурсами в кластере и это задачка для отдела эксплуатации
+- В учебном кластере проявляется иначе. После запуска kubectl patch, проверяем `kubectl describe deployments.apps my-deployment`. Видим, что создается `replicaset`, но в выводе pods новых нет.
+```shell
+OldReplicaSets:    my-deployment-6d6f49d794 (2/2 replicas created)
+NewReplicaSet:     my-deployment-7ccb8f8966 (0/1 replicas created)
+Events:
+  Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  5m55s  deployment-controller  Scaled up replica set my-deployment-6d6f49d794 to 2
+  Normal  ScalingReplicaSet  5m51s  deployment-controller  Scaled up replica set my-deployment-7ccb8f8966 to 1
+```
+Проверим, что выдает `kubectl get rs` и `kubectl describe rs`. Видим, что вторая реплика создалась неполностью из-за политики безопасности.
+```shell
+>kubectl get rs
+NAME                       DESIRED   CURRENT   READY   AGE
+my-deployment-6d6f49d794   2         2         2       11m
+my-deployment-7ccb8f8966   1         0         0       11m
+>kubectl describe rs my-deployment-7ccb8f8966
+  Warning  FailedCreate  11m               replicaset-controller  Error creating: pods "my-deployment-7ccb8f8966-2wdlg" is forbidden: exceeded quota: resource-quota, requested: limits.cpu=2,requests.cpu=2, used: limits.cpu=200m,requests.cpu=20m, limited: limits.cpu=500m,requests.cpu=500m
+```
 
 # Q&A
 - |
