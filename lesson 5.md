@@ -136,7 +136,8 @@ Events:
   ----     ------        ----                    ----                   -------
   Warning  FailedCreate  3m43s (x17 over 9m14s)  replicaset-controller  Error creating: pods "my-deployment-f9c7845d9-" is forbidden: PodSecurityPolicy: unable to admit pod: [spec.volumes[0]: Invalid value: "hostPath": hostPath volumes are not allowed to be used]
 ```
-- Остановился [здесь](https://youtu.be/8Wk1iI8mMrw?t=907)
+
+#### Q&A
 - [01:16:23](https://youtu.be/8Wk1iI8mMrw?t=983)
     - Q: На какой ноде будет лежать каталог HostPath
     - A: Будет происходить попытка смонтировать каталог с той ноды, где запущен под
