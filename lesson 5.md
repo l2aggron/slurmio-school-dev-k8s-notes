@@ -3,8 +3,10 @@ date created: 2021-10-15 16:02:06 (+03:00), Friday
 ---
 
 # Урок 5: Хранение данных. Вечерняя школа «Kubernetes для разработчиков» [youtube](https://youtu.be/8Wk1iI8mMrw)
-## [Техническая пауза, опрос](https://youtu.be/8Wk1iI8mMrw?t=20)
-## [Вступление](https://youtu.be/8Wk1iI8mMrw?t=255)
+
+## Техническая пауза, опрос [00:00:20](https://youtu.be/8Wk1iI8mMrw?t=20)
+
+## Вступление [00:04:15](https://youtu.be/8Wk1iI8mMrw?t=255)
 - Сергей приводит в пример новичков, которые развернув "Hello World!" приложение в kubernetes радуются его неубиваемости и пробуют добавить в деплоймент образ какого нибудь MySQL, получают 3 отдельных базы а не какой-то кластер и спрашивают, почему так происходит.
 - Происходит это потому, что kubernetes не знает ничего о базах данных и не умеет их "готовить"
 - Зато kubernetes умеет предоставлять приложению место, где оно сможет хранить свои данные
@@ -124,7 +126,7 @@ Events:
 $kubectl describe replicasets.apps my-deployment-f9c7845d9
 
 # часть вывода скрыта
-# видим, что hostPath запрещён к использованию посредством PodSecurityPolicy
+# видим сообщение от replicaset-controller о том что hostPath запрещён к использованию посредством PodSecurityPolicy
 Conditions:
   Type             Status  Reason
   ----             ------  ------
@@ -135,3 +137,127 @@ Events:
   Warning  FailedCreate  3m43s (x17 over 9m14s)  replicaset-controller  Error creating: pods "my-deployment-f9c7845d9-" is forbidden: PodSecurityPolicy: unable to admit pod: [spec.volumes[0]: Invalid value: "hostPath": hostPath volumes are not allowed to be used]
 ```
 - Остановился [здесь](https://youtu.be/8Wk1iI8mMrw?t=907)
+- [01:16:23](https://youtu.be/8Wk1iI8mMrw?t=983)
+    - Q: На какой ноде будет лежать каталог HostPath
+    - A: Будет происходить попытка смонтировать каталог с той ноды, где запущен под
+- [01:16:42](https://youtu.be/8Wk1iI8mMrw?t=1002)
+    - Q:  Где управлять PodSecurityPolicy?
+    - A: Рассмотрим позже, это отдельная трехчасовая лекция, эта тема есть в курсе "Мега", но здесь тоже будет обзорная лекция
+- [01:17:03](https://youtu.be/8Wk1iI8mMrw?t=1023)
+    - Q: По умолчанию все политики открыты?
+    - A: Да, по умолчанию никаких psp не включено в kubernetes, их нужно специально включать для того чтобы можно было применять какие либо ограничения
+- [00:17:12](https://youtu.be/8Wk1iI8mMrw?t=1032)
+    - Q: Кажется, это ответ на эту ссылку ([PodSecurityPolicy Deprecation: Past, Present, and Future](https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/)), но она была воспринята как информация о прекращении поддержки hostPath
+    - A: Такой тип в deprecated перейти не может, потому что он нужен для системных компонентов kubernetes, чтобы они запускались. Там решается проблема курицы и яйца, Мюнгхаузена, который вытаскивает себя из болота и т.д., грубо говоря, ему (кому?) нужно запуститься, пока еще не все компоненты запущены, поэтому приходится использовать hostPath для таких решений
+
+### [EmptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) [00:17:47](https://youtu.be/8Wk1iI8mMrw?t=1067)
+- Еще один вариант тома, т.н. [Ephemeral](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/)
+- В перводе с английского - пустой каталог
+- Создаёт временный диск и монтирует его внутрь контейнера
+- Т.е., это не заранее обозначенный каталог на ноде, а специальный каталог, создаваемый посредством container runtime interface, который будет использоваться в нашем контейнере всё время, пока живёт под
+- После того, как под закончит свою работу (его выключат, обновят и т.п.), emptyDir будет удалён вместе с подом
+- Таким образом, данные хранимые в emptyDir живут столько же, сколько и под, удалён под - удалены данные
+- Если контейнер внутри пода упадёт, сохранность данных это не затронет
+- Можно провести аналогию emptyDir со стандартным docker volume, при условии, что в манифесте docker compose мы не указываем, какой каталог монтировать, но указываем имя, будет создан volume, с тем отличием, что emptyDir будет удален при завершении работы пода
+
+#### Зачем нужен EmptyDir? [00:19:23](https://youtu.be/8Wk1iI8mMrw?t=1163)
+- emptyDir применяется для работы с данными, которые не имеет смысл хранить постоянно, например:
+    - для временных баз данных, например для автотестов
+    - при тестировании приложений и сервисов, требующих работы с диском
+
+##### Пробуем применить EmptyDir в учебном кластере [00:20:50](https://youtu.be/8Wk1iI8mMrw?t=1250)
+- Переходим в каталог `~/school-dev-k8s/practice/5.saving-data/2.emptydir`, видим манифест:
+```yaml
+# deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - image: quay.io/testing-farm/nginx:1.12
+        name: nginx
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:       
+        - name: data
+          mountPath: /files
+      volumes:          # перечисление томов, которые будут смонитированы
+      - name: data      # имя тома
+        emptyDir: {}    # тип тома и пустой словарь в качестве значения, чтобы манифест прошел валидацию
+...
+```
+- Видим знакомую картину, в разделе volumes подключаем том типа emptyDir
+- Фигурные скобки в качестве значения переданы для того чтобы манифест прошел валидацию (непонятно только чью, попробовал убрать их, ошибок не встретил, подставил вместо них `~` - аналогично)
+- Далее Сергей применяет манифест и демонстрирует, что мы можем писать в каталог /files, а также что после перезахода в контейнер, он остаётся на месте
+
+#### Q&A
+- [00:24:43](https://youtu.be/8Wk1iI8mMrw?t=1483)
+    - Q: Ограничения на размер emptyDir?
+    - A: Такие же как на том, где фактически расположен emptyDir, обычно это каталог  `/var/lib/kubelet/pods/_POD_ID_/volumes/kubernetes.io~empty-dir` или оперативная память
+- [00:25:18](https://youtu.be/8Wk1iI8mMrw?t=1518)
+    - Q: Можно ли создать emptyDir для нескольких подов?
+    - A: Можно, но для каждого пода это будет отдельный emptyDir
+- [00:25:30](https://youtu.be/8Wk1iI8mMrw?t=1530)
+    - Q: А если apply - тоже пропадёт emptyDir?
+    - A: Если произошли изменения, которые привели к созданию новых подов, то, как следствие, emptyDir пропадёт
+- [00:25:57](https://youtu.be/8Wk1iI8mMrw?t=1557)
+    - Q: Какой смысл использовать emptyDir, если можно положить данные в любую папку в контейнере и они так же не сохранятся при удалении пода
+    - A: 
+        - В связи со "слоёной" системой устройства хранилища в докер контейнере мы имеем большой оверхед по производительности, поэтому для работы используют механизм монтирования томов
+        - Коллега подсказывают, что для обмена данными между разными контейнерами внутри одного пода тоже могут применяться emptyDir
+
+### PV/PVC [00:27:32](https://youtu.be/8Wk1iI8mMrw?t=1652)
+- Если кратко - более современные абстракции для работы с томами, подробнее в видео
+- [Документация по Persistent Volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+
+#### PVC, persistentVolumeClaim [00:29:20](https://youtu.be/8Wk1iI8mMrw?t=1760)
+- Это наша заявка на то, какой диск нам нужен [00:33:15](https://youtu.be/8Wk1iI8mMrw?t=1995)
+```yaml
+# пример описания такого тома
+volumes:                    # раздел объявления томов
+  - name: mypd              # задаём имя
+    persistentVolumeClaim:  # указываем тип тома
+      claimName: myclaim    # название клэйма (да ладно?!)
+```
+- [00:29:43](https://youtu.be/8Wk1iI8mMrw?t=1783) - как это всё устроено
+- [00:30:31](https://youtu.be/8Wk1iI8mMrw?t=1831) - обзор типов доступа к диску, то же в [документации](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes)
+
+#### [Storage class](https://kubernetes.io/docs/concepts/storage/storage-classes/) [00:31:24](https://youtu.be/8Wk1iI8mMrw?t=1884)
+- В kubernetes для хранения данных (приложений?) обычно используются внешние системы хранения данных, такие как:
+    - [Ceph](https://ceph.io/en/)
+    - [Gluster](https://www.gluster.org/)
+    - [LINSTOR](https://linbit.com/linstor/)
+    - Различные аппаратные решения
+    - Облачные решения - gcp, aws
+- В storage class мы можем описать подключение к таким системам и указать данные для подключения, такие как:
+    - адреса
+    - логины/пароли/токены
+    - различные другие настройки для взаимодействия с СХД
+
+#### Persistent Volume [00:33:24](https://youtu.be/8Wk1iI8mMrw?t=2004)
+- Абстракция, которая создаётся и в которой записывается информация о том диске, который был выдан нашему приложению 
+- Откуда они беруться?
+    - Один из вариантов - системный администратор СХД руками создаёт диски и с данными этих дисков создаёт манифесты PV в kubernetes
