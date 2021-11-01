@@ -33,23 +33,23 @@ date created: 2021-10-07 19:00:18 (+03:00), Thursday
 ```yaml
 ---
 # file: practice/2.application-abstractions/2.replicaset/replicaset.yaml
-apiVersion: apps/v1
-kind: ReplicaSet
+apiVersion: apps/v1 # Which version of the Kubernetes API you're using to create this object 
+kind: ReplicaSet # What kind of object you want to create
 metadata:
   name: my-replicaset
 spec:
-  replicas: 2
-  selector:
+  replicas: 2 # how many replicas
+  selector: # allows to select pods with a matched label ('my-app' here)
     matchLabels:
       app: my-app
-  template:
+  template: # template of pod we want to create, you don't need a name, k8s will generate it
     metadata:
-      labels:
+      labels: # you can use labels anywhere
         app: my-app
-    spec:
+    spec: # to describe k8s what you want to build
       containers:
       - image: quay.io/testing-farm/nginx:1.12
-        name: nginx
+        name: nginx # name is have to be unique 
         ports:
         - containerPort: 80
 ...
@@ -69,7 +69,7 @@ spec:
         - содержит описание пода, при этом имя пода не указывается, т.к. оно будет генерироваться автоматически
         - в метаданных содержит label, соответствующий селектору
         - spec
-            - такой же как в описанити пода
+            - такой же как в описании пода
             - имена контейнеров нужно указывать, в отличие от имён подов в темплейтах, причём имена в рамках пода должны быть уникальны
             - описание портов - для документации (но не совсем, как было сказано выше)
 
@@ -80,7 +80,7 @@ spec:
 # По лейблам
 - Они могут быть присвоены вообще любому объекту, например, мы можем присвоить метку и самому ReplicaSet
 - Почему лейблы это хорошо
-    - kubernetes сам их использует, например, чтобы понимать, какие поды привязаны к каким ReplicaSet
+    - kubernetes сам их использует (через service discovery), например, чтобы понимать, какие поды привязаны к каким ReplicaSet
     - по ним можно понимать, что за приложение, мы можем навешать кастомных человекочитаемых меток и по ним ориентироваться
     - инструменты для работы с kubernetes, тот же kubectl get, позволяют фильтровать, например, kubectl get pod -l "app=myapp" выдаст поды с соответствующей меткой
 - Рекомендуется везде проставлять и использовать лейблы, особенно в рамках курса, далее будут достаточно сложные, приближенные к реальности, конфигурации, там везде будут лейблы
