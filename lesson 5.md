@@ -650,4 +650,4 @@ csi-high-iops-ms1-retain   cinder.csi.openstack.org   Retain          Immediate 
         - В целом, зная одно, проще будет работать с другим
 - [01:51:35](https://youtu.be/8Wk1iI8mMrw?t=6695)
     - Q: Что такое /dev/vda1 с точкой монтирования /etc/hosts?
-    - A: Это всякие служебные точки монтирования, которые монтируют hosts с узла, resolve.conf с узла и т.п.
+    - A: Это всякие служебные точки монтирования, которые монтируют hosts с узла, resolv.conf с узла и т.п.
